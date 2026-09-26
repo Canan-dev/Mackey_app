@@ -428,7 +428,7 @@ class _ChatPageState extends State<ChatPage> {
   final messagesController =
       StreamController<List<Map<String, dynamic>>>.broadcast();
   RealtimeChannel? messagesChannel;
-  late final Stream<List<Map<String, dynamic>>> messageStream =
+  Stream<List<Map<String, dynamic>>> get messageStream =>
       messagesController.stream;
   String? connectionError;
   Color selectedBackground = background;
@@ -516,6 +516,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _loadMessages() async {
+    if (!supabaseReady) return;
     try {
       final rows = await Supabase.instance.client
           .from('messages')
