@@ -555,53 +555,13 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> saveProfile() async {
-    final nextUser = profileUsername.text.trim();
-    if (nextUser.isEmpty) {
-      setState(() => connectionError = 'Please enter a username.');
-      return;
-    }
-
-    final oldUser = currentUser;
-
-    if (nextUser.toLowerCase() != oldUser.toLowerCase()) {
-      setState(() => connectionError = 'Checking username availability...');
-      final taken = await isUsernameTaken(nextUser, excludeUser: oldUser);
-      if (taken) {
-        if (mounted) {
-          setState(() {
-            connectionError =
-                'Username "$nextUser" is already taken. Choose a different name.';
-          });
-        }
-        return;
-      }
-    }
-
     setState(() {
-      currentUser = nextUser;
       selectedBackground = profileBackground;
       profileOpen = false;
       connectionError = null;
     });
 
-    await saveSavedUsername(nextUser);
     await saveSavedBackground(profileBackground.toARGB32());
-
-    if (oldUser.isNotEmpty && oldUser != nextUser && supabaseReady) {
-      try {
-        await Supabase.instance.client
-            .from('messages')
-            .update({'author': nextUser})
-            .ilike('author', oldUser);
-        await _loadMessages();
-      } catch (error) {
-        if (mounted) {
-          setState(
-            () => connectionError = 'Could not update past messages: $error',
-          );
-        }
-      }
-    }
   }
 
   Future<void> openAttachment(String url) async {
@@ -958,17 +918,57 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          const Text(
-            'Change username',
-            style: TextStyle(fontSize: 12, color: muted),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: profileUsername,
-            decoration: const InputDecoration(
-              hintText: 'Your name',
-              isDense: true,
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: .06),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: .08)),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: lime,
+                  child: Text(
+                    currentUser.isNotEmpty
+                        ? currentUser[0].toUpperCase()
+                        : 'U',
+                    style: const TextStyle(
+                      color: background,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        currentUser,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: const [
+                          Icon(Icons.circle, color: Color(0xff4CAF50), size: 8),
+                          SizedBox(width: 5),
+                          Text(
+                            'Active Member',
+                            style: TextStyle(fontSize: 11, color: muted),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),
