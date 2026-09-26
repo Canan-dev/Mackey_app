@@ -39,6 +39,17 @@ Future<int?> getSavedBackground() async {
   return prefs.getInt('saved_background_color');
 }
 
+Future<void> saveDeletedForMeIds(Set<String> ids) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setStringList('deleted_for_me_ids', ids.toList());
+}
+
+Future<Set<String>> getDeletedForMeIds() async {
+  final prefs = await SharedPreferences.getInstance();
+  final list = prefs.getStringList('deleted_for_me_ids') ?? [];
+  return list.toSet();
+}
+
 Future<bool> isUsernameTaken(String username, {String? excludeUser}) async {
   if (!supabaseReady) return false;
   final clean = username.trim();
@@ -424,6 +435,7 @@ class _ChatPageState extends State<ChatPage> {
   Color profileBackground = background;
   bool profileOpen = false;
   String currentUser = '';
+  Set<String> deletedForMeIds = {};
 
   static const List<Color> palette = [
     Color(0xff111315),
@@ -442,8 +454,19 @@ class _ChatPageState extends State<ChatPage> {
     profileUsername.text = widget.user;
     profileBackground = selectedBackground;
     _loadSavedBackground();
+    _loadDeletedForMeIds();
     supabaseReadyNotifier.addListener(_onSupabaseReady);
     if (supabaseReady) _subscribeToMessages();
+  }
+
+  Future<void> _loadDeletedForMeIds() async {
+    final ids = await getDeletedForMeIds();
+    if (mounted) {
+      setState(() {
+        deletedForMeIds = ids;
+      });
+      _loadMessages();
+    }
   }
 
   Future<void> _loadSavedBackground() async {
@@ -500,7 +523,10 @@ class _ChatPageState extends State<ChatPage> {
           .eq('room', widget.room)
           .order('created_at', ascending: false);
       if (!messagesController.isClosed) {
-        messagesController.add(List<Map<String, dynamic>>.from(rows));
+        final filtered = List<Map<String, dynamic>>.from(rows)
+            .where((row) => !deletedForMeIds.contains(row['id'].toString()))
+            .toList();
+        messagesController.add(filtered);
         _scrollToBottom();
       }
     } catch (error) {
@@ -703,13 +729,27 @@ class _ChatPageState extends State<ChatPage> {
     ChatMessage message, {
     required bool everywhere,
   }) async {
-    if (everywhere) {
-      await Supabase.instance.client
-          .from('messages')
-          .delete()
-          .eq('id', message.id);
-    }
     if (mounted) Navigator.pop(context);
+    if (everywhere) {
+      try {
+        final parsedId = int.tryParse(message.id);
+        await Supabase.instance.client
+            .from('messages')
+            .delete()
+            .eq('id', parsedId ?? message.id);
+        await _loadMessages();
+      } catch (error) {
+        if (mounted) {
+          setState(() => connectionError = 'Could not delete message: $error');
+        }
+      }
+    } else {
+      setState(() {
+        deletedForMeIds.add(message.id);
+      });
+      await saveDeletedForMeIds(deletedForMeIds);
+      await _loadMessages();
+    }
   }
 
   Future<void> openLeadersSpace() async {
