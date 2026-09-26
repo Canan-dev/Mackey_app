@@ -358,7 +358,7 @@ class _ChatPageState extends State<ChatPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (scrollController.hasClients) {
         scrollController.animateTo(
-          scrollController.position.maxScrollExtent,
+          0.0,
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOut,
         );
@@ -390,7 +390,7 @@ class _ChatPageState extends State<ChatPage> {
           .from('messages')
           .select()
           .eq('room', widget.room)
-          .order('created_at');
+          .order('created_at', ascending: false);
       if (!messagesController.isClosed) {
         messagesController.add(List<Map<String, dynamic>>.from(rows));
         _scrollToBottom();
@@ -673,6 +673,7 @@ class _ChatPageState extends State<ChatPage> {
                     )
                   : ListView.builder(
                       controller: scrollController,
+                      reverse: true,
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
                       itemCount: messages.length,
                       itemBuilder: (_, index) => messageTile(messages[index]),
