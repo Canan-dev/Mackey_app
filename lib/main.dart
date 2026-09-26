@@ -566,6 +566,7 @@ class _ChatPageState extends State<ChatPage> {
             .from('messages')
             .update({'author': nextUser})
             .ilike('author', oldUser);
+        await _loadMessages();
       } catch (error) {
         if (mounted) {
           setState(
@@ -1165,7 +1166,8 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget messageTile(ChatMessage message) {
-    final mine = message.author == currentUser;
+    final mine =
+        message.author.trim().toLowerCase() == currentUser.trim().toLowerCase();
     final bubbleColor = mine
         ? _bubbleColor(selectedBackground)
         : Colors.white.withValues(alpha: .08);
