@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 const lime = Color(0xffd5f26a);
 const background = Color(0xff111315);
@@ -27,6 +28,18 @@ class ChatMessage {
   final String time;
   final String? attachmentUrl;
   final String? attachmentName;
+
+  bool get isImageAttachment {
+    if (attachmentUrl == null) return false;
+    final name = (attachmentName ?? attachmentUrl!).toLowerCase();
+    return name.endsWith('.jpg') ||
+        name.endsWith('.jpeg') ||
+        name.endsWith('.png') ||
+        name.endsWith('.gif') ||
+        name.endsWith('.webp') ||
+        name.endsWith('.bmp') ||
+        name.endsWith('.svg');
+  }
 
   factory ChatMessage.fromMap(Map<String, dynamic> data) {
     final timestamp = DateTime.tryParse(data['created_at'] as String? ?? '');
@@ -303,6 +316,7 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final draft = TextEditingController();
   final profileUsername = TextEditingController();
+  final scrollController = ScrollController();
   final messagesController =
       StreamController<List<Map<String, dynamic>>>.broadcast();
   RealtimeChannel? messagesChannel;
@@ -340,6 +354,18 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (scrollController.hasClients) {
+        scrollController.animateTo(
+          scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
   Future<void> _subscribeToMessages() async {
     await _loadMessages();
     messagesChannel = Supabase.instance.client
@@ -367,6 +393,7 @@ class _ChatPageState extends State<ChatPage> {
           .order('created_at');
       if (!messagesController.isClosed) {
         messagesController.add(List<Map<String, dynamic>>.from(rows));
+        _scrollToBottom();
       }
     } catch (error) {
       if (mounted) {
@@ -392,19 +419,71 @@ class _ChatPageState extends State<ChatPage> {
         : const Color(0xfff6f4ef);
   }
 
-  void saveProfile() {
+  Future<void> saveProfile() async {
     final nextUser = profileUsername.text.trim();
     if (nextUser.isEmpty) {
       setState(() => connectionError = 'Please enter a username.');
       return;
     }
 
+    final oldUser = currentUser;
     setState(() {
       currentUser = nextUser;
       selectedBackground = profileBackground;
       profileOpen = false;
       connectionError = null;
     });
+
+    if (oldUser.isNotEmpty && oldUser != nextUser && supabaseReady) {
+      try {
+        await Supabase.instance.client
+            .from('messages')
+            .update({'author': nextUser})
+            .eq('author', oldUser);
+      } catch (_) {
+        // Silently handle if update fails
+      }
+    }
+  }
+
+  Future<void> openAttachment(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  void showImagePreview(String url, String name) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(12),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            InteractiveViewer(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(url, fit: BoxFit.contain),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: CircleAvatar(
+                backgroundColor: Colors.black.withValues(alpha: 0.7),
+                child: IconButton(
+                  icon: const Icon(Icons.download_rounded, color: Colors.white),
+                  onPressed: () => openAttachment(url),
+                  tooltip: 'Download',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> send() async {
@@ -481,7 +560,9 @@ class _ChatPageState extends State<ChatPage> {
         setState(
           () => connectionError = error is PostgrestException
               ? _supabaseError(error)
-              : 'Could not upload ${file.name}.',
+              : error is StorageException
+                  ? 'Storage error: ${error.message}'
+                  : 'Could not upload ${file.name}: $error',
         );
       }
     }
@@ -549,6 +630,7 @@ class _ChatPageState extends State<ChatPage> {
     supabaseReadyNotifier.removeListener(_onSupabaseReady);
     messagesChannel?.unsubscribe();
     messagesController.close();
+    scrollController.dispose();
     draft.dispose();
     profileUsername.dispose();
     super.dispose();
@@ -579,6 +661,9 @@ class _ChatPageState extends State<ChatPage> {
               final messages = (snapshot.data ?? <Map<String, dynamic>>[])
                   .map(ChatMessage.fromMap)
                   .toList();
+              if (snapshot.hasData) {
+                _scrollToBottom();
+              }
               return messages.isEmpty
                   ? const Center(
                       child: Text(
@@ -587,6 +672,7 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                     )
                   : ListView.builder(
+                      controller: scrollController,
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
                       itemCount: messages.length,
                       itemBuilder: (_, index) => messageTile(messages[index]),
@@ -1006,12 +1092,53 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               if (message.attachmentUrl != null) ...[
                 if (message.text.isNotEmpty) const SizedBox(height: 8),
+                if (message.isImageAttachment) ...[
+                  GestureDetector(
+                    onTap: () => showImagePreview(
+                      message.attachmentUrl!,
+                      message.attachmentName ?? 'Image',
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        constraints: const BoxConstraints(maxHeight: 220),
+                        child: Image.network(
+                          message.attachmentUrl!,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const SizedBox(
+                              height: 100,
+                              child: Center(
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            );
+                          },
+                          errorBuilder: (_, __, ___) => Row(
+                            children: [
+                              const Icon(Icons.broken_image, color: Colors.red),
+                              const SizedBox(width: 8),
+                              Text('Image unavailable', style: TextStyle(color: bubbleTextColor)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                ],
                 InkWell(
-                  onTap: () {},
+                  onTap: () => openAttachment(message.attachmentUrl!),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.attach_file, color: bubbleTextColor, size: 18),
+                      Icon(
+                        message.isImageAttachment
+                            ? Icons.download_rounded
+                            : Icons.attach_file,
+                        color: bubbleTextColor,
+                        size: 18,
+                      ),
                       const SizedBox(width: 5),
                       Flexible(
                         child: Text(
