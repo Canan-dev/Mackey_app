@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,71 @@ const background = Color(0xff111315);
 const panel = Color(0xff232729);
 const muted = Color(0xff969b9a);
 const leadersAccessPassword = 'Dec2007';
+
+class PendingMessage {
+  final String localId;
+  final String room;
+  final String author;
+  final String text;
+  final String? attachmentUrl;
+  final String? attachmentName;
+  final DateTime createdAt;
+
+  PendingMessage({
+    required this.localId,
+    required this.room,
+    required this.author,
+    required this.text,
+    this.attachmentUrl,
+    this.attachmentName,
+    required this.createdAt,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'localId': localId,
+        'room': room,
+        'author': author,
+        'text': text,
+        'attachmentUrl': attachmentUrl,
+        'attachmentName': attachmentName,
+        'createdAt': createdAt.toIso8601String(),
+      };
+
+  factory PendingMessage.fromJson(Map<String, dynamic> json) => PendingMessage(
+        localId: json['localId'] as String,
+        room: json['room'] as String? ?? 'main',
+        author: json['author'] as String? ?? 'Me',
+        text: json['text'] as String? ?? '',
+        attachmentUrl: json['attachmentUrl'] as String?,
+        attachmentName: json['attachmentName'] as String?,
+        createdAt: DateTime.parse(json['createdAt'] as String),
+      );
+
+  ChatMessage toChatMessage() => ChatMessage(
+        id: localId,
+        author: author,
+        text: text,
+        time: 'Pending 🕒',
+        attachmentUrl: attachmentUrl,
+        attachmentName: attachmentName,
+        isPending: true,
+      );
+}
+
+Future<void> savePendingQueue(List<PendingMessage> list) async {
+  final prefs = await SharedPreferences.getInstance();
+  final raw = list.map((m) => jsonEncode(m.toJson())).toList();
+  await prefs.setStringList('pending_messages_queue', raw);
+}
+
+Future<List<PendingMessage>> getPendingQueue() async {
+  final prefs = await SharedPreferences.getInstance();
+  final raw = prefs.getStringList('pending_messages_queue') ?? [];
+  return raw
+      .map((str) =>
+          PendingMessage.fromJson(jsonDecode(str) as Map<String, dynamic>))
+      .toList();
+}
 
 Future<void> saveSavedUsername(String name) async {
   final prefs = await SharedPreferences.getInstance();
@@ -77,6 +143,7 @@ class ChatMessage {
     required this.time,
     this.attachmentUrl,
     this.attachmentName,
+    this.isPending = false,
   });
   final String id;
   final String author;
@@ -84,6 +151,7 @@ class ChatMessage {
   final String time;
   final String? attachmentUrl;
   final String? attachmentName;
+  final bool isPending;
 
   bool get isImageAttachment {
     if (attachmentUrl == null) return false;
@@ -103,9 +171,14 @@ class ChatMessage {
       id: data['id'].toString(),
       author: data['author'] as String? ?? 'Unknown',
       text: data['text'] as String? ?? '',
-      time: timestamp == null ? '' : _formatTime(timestamp),
+      time: data['created_at'] == 'Pending 🕒'
+          ? 'Pending 🕒'
+          : timestamp == null
+              ? ''
+              : _formatTime(timestamp),
       attachmentUrl: data['attachment_url'] as String?,
       attachmentName: data['attachment_name'] as String?,
+      isPending: data['isPending'] == true,
     );
   }
 
@@ -436,6 +509,8 @@ class _ChatPageState extends State<ChatPage> {
   bool profileOpen = false;
   String currentUser = '';
   Set<String> deletedForMeIds = {};
+  List<PendingMessage> pendingQueue = [];
+  Timer? syncTimer;
 
   static const List<Color> palette = [
     Color(0xff111315),
@@ -455,8 +530,50 @@ class _ChatPageState extends State<ChatPage> {
     profileBackground = selectedBackground;
     _loadSavedBackground();
     _loadDeletedForMeIds();
+    _loadPendingQueue();
+    syncTimer = Timer.periodic(
+      const Duration(seconds: 4),
+      (_) => _syncPendingQueue(),
+    );
     supabaseReadyNotifier.addListener(_onSupabaseReady);
     if (supabaseReady) _subscribeToMessages();
+  }
+
+  Future<void> _loadPendingQueue() async {
+    final queue = await getPendingQueue();
+    if (mounted) {
+      setState(() {
+        pendingQueue = queue;
+      });
+      _loadMessages();
+    }
+  }
+
+  Future<void> _syncPendingQueue() async {
+    if (pendingQueue.isEmpty || !supabaseReady) return;
+    final toSync = List<PendingMessage>.from(pendingQueue);
+    bool syncedAny = false;
+
+    for (final pending in toSync) {
+      try {
+        await Supabase.instance.client.from('messages').insert({
+          'room': pending.room,
+          'author': pending.author,
+          'text': pending.text,
+          'attachment_url': pending.attachmentUrl,
+          'attachment_name': pending.attachmentName,
+        });
+        pendingQueue.removeWhere((item) => item.localId == pending.localId);
+        syncedAny = true;
+      } catch (_) {
+        break;
+      }
+    }
+
+    if (syncedAny) {
+      await savePendingQueue(pendingQueue);
+      await _loadMessages();
+    }
   }
 
   Future<void> _loadDeletedForMeIds() async {
@@ -516,24 +633,46 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _loadMessages() async {
-    if (!supabaseReady) return;
-    try {
-      final rows = await Supabase.instance.client
-          .from('messages')
-          .select()
-          .eq('room', widget.room)
-          .order('created_at', ascending: false);
-      if (!messagesController.isClosed) {
-        final filtered = List<Map<String, dynamic>>.from(rows)
-            .where((row) => !deletedForMeIds.contains(row['id'].toString()))
-            .toList();
-        messagesController.add(filtered);
-        _scrollToBottom();
+    List<Map<String, dynamic>> dbRows = [];
+    if (supabaseReady) {
+      try {
+        final data = await Supabase.instance.client
+            .from('messages')
+            .select()
+            .eq('room', widget.room)
+            .order('created_at', ascending: false);
+        dbRows = List<Map<String, dynamic>>.from(data);
+        if (mounted &&
+            connectionError != null &&
+            connectionError!.contains('offline')) {
+          setState(() => connectionError = null);
+        }
+      } catch (_) {
+        // Offline load fallback
       }
-    } catch (error) {
-      if (mounted) {
-        setState(() => connectionError = 'Could not load messages: $error');
-      }
+    }
+
+    if (!messagesController.isClosed) {
+      final filteredDb = dbRows
+          .where((row) => !deletedForMeIds.contains(row['id'].toString()))
+          .toList();
+
+      final roomPending = pendingQueue
+          .where((item) => item.room == widget.room)
+          .map((item) => {
+                'id': item.localId,
+                'author': item.author,
+                'text': item.text,
+                'created_at': 'Pending 🕒',
+                'attachment_url': item.attachmentUrl,
+                'attachment_name': item.attachmentName,
+                'isPending': true,
+              })
+          .toList();
+
+      final combined = [...roomPending, ...filteredDb];
+      messagesController.add(combined);
+      _scrollToBottom();
     }
   }
 
@@ -634,16 +773,37 @@ class _ChatPageState extends State<ChatPage> {
     String? attachmentName,
   }) async {
     if (text.isEmpty && attachmentUrl == null) return;
-    if (!supabaseReady) {
-      throw PostgrestException(message: 'Supabase is not configured.');
+
+    final pending = PendingMessage(
+      localId: 'pending_${DateTime.now().microsecondsSinceEpoch}',
+      room: widget.room,
+      author: currentUser,
+      text: text,
+      attachmentUrl: attachmentUrl,
+      attachmentName: attachmentName,
+      createdAt: DateTime.now(),
+    );
+
+    try {
+      if (!supabaseReady) throw Exception('Offline');
+      await Supabase.instance.client.from('messages').insert({
+        'room': widget.room,
+        'author': currentUser,
+        'text': text,
+        'attachment_url': attachmentUrl,
+        'attachment_name': attachmentName,
+      });
+    } catch (_) {
+      pendingQueue.add(pending);
+      await savePendingQueue(pendingQueue);
+      if (mounted) {
+        setState(() {
+          connectionError =
+              'Saved offline. Message will send when back online.';
+        });
+      }
     }
-    await Supabase.instance.client.from('messages').insert({
-      'room': widget.room,
-      'author': currentUser,
-      'text': text,
-      'attachment_url': attachmentUrl,
-      'attachment_name': attachmentName,
-    });
+    await _loadMessages();
   }
 
   Future<void> pickAttachment({required bool imageOnly}) async {
@@ -759,6 +919,7 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
+    syncTimer?.cancel();
     supabaseReadyNotifier.removeListener(_onSupabaseReady);
     messagesChannel?.unsubscribe();
     messagesController.close();
@@ -1259,7 +1420,12 @@ class _ChatPageState extends State<ChatPage> {
             children: [
               Text(
                 '${message.author}  ${message.time}',
-                style: TextStyle(color: metaColor, fontSize: 10),
+                style: TextStyle(
+                  color: message.isPending ? const Color(0xffffb74d) : metaColor,
+                  fontSize: 10,
+                  fontWeight:
+                      message.isPending ? FontWeight.bold : FontWeight.normal,
+                ),
               ),
               const SizedBox(height: 5),
               if (message.text.isNotEmpty)
