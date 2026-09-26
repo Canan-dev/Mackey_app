@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -12,6 +13,40 @@ const background = Color(0xff111315);
 const panel = Color(0xff232729);
 const muted = Color(0xff969b9a);
 const leadersAccessPassword = 'Dec2007';
+
+Future<void> saveSavedUsername(String name) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString('saved_username', name);
+}
+
+Future<String?> getSavedUsername() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getString('saved_username');
+}
+
+Future<void> clearSavedUsername() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.remove('saved_username');
+}
+
+Future<bool> isUsernameTaken(String username, {String? excludeUser}) async {
+  if (!supabaseReady) return false;
+  final clean = username.trim();
+  if (clean.isEmpty) return false;
+  if (excludeUser != null && clean.toLowerCase() == excludeUser.toLowerCase()) {
+    return false;
+  }
+  try {
+    final response = await Supabase.instance.client
+        .from('messages')
+        .select('author')
+        .ilike('author', clean)
+        .limit(1);
+    return (response as List).isNotEmpty;
+  } catch (_) {
+    return false;
+  }
+}
 
 class ChatMessage {
   const ChatMessage({
@@ -143,8 +178,28 @@ class MmcApp extends StatelessWidget {
     ),
     home: ValueListenableBuilder<String?>(
       valueListenable: supabaseStartupError,
-      builder: (context, startupError, _) =>
-          LoginPage(startupError: startupError),
+      builder: (context, startupError, _) {
+        if (startupError != null) {
+          return LoginPage(startupError: startupError);
+        }
+        return FutureBuilder<String?>(
+          future: getSavedUsername(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                body: Center(
+                  child: CircularProgressIndicator(color: lime),
+                ),
+              );
+            }
+            final saved = snapshot.data;
+            if (saved != null && saved.trim().isNotEmpty) {
+              return ChatPage(user: saved.trim());
+            }
+            return const LoginPage();
+          },
+        );
+      },
     ),
   );
 }
@@ -161,6 +216,7 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final username = TextEditingController();
   String? error;
+  bool isLoading = false;
 
   @override
   void dispose() {
@@ -168,14 +224,36 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void enter() {
-    if (username.text.trim().isEmpty) {
+  Future<void> enter() async {
+    final name = username.text.trim();
+    if (name.isEmpty) {
       setState(() => error = 'Please enter your username.');
       return;
     }
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => ChatPage(user: username.text.trim())),
-    );
+    setState(() {
+      isLoading = true;
+      error = null;
+    });
+
+    final saved = await getSavedUsername();
+    // Check if taken by someone else
+    if (saved != name && await isUsernameTaken(name)) {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          error = 'Username "$name" is already taken. Please choose another one.';
+        });
+      }
+      return;
+    }
+
+    await saveSavedUsername(name);
+
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => ChatPage(user: name)),
+      );
+    }
   }
 
   @override
@@ -273,7 +351,7 @@ class _LoginPageState extends State<LoginPage> {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed: enter,
+                      onPressed: isLoading ? null : enter,
                       style: FilledButton.styleFrom(
                         backgroundColor: lime,
                         foregroundColor: background,
@@ -282,16 +360,25 @@ class _LoginPageState extends State<LoginPage> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Enter MMC',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Icon(Icons.arrow_outward),
-                        ],
-                      ),
+                      child: isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: background,
+                              ),
+                            )
+                          : const Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Enter MMC',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                Icon(Icons.arrow_outward),
+                              ],
+                            ),
                     ),
                   ),
                 ],
@@ -427,12 +514,29 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     final oldUser = currentUser;
+
+    if (nextUser.toLowerCase() != oldUser.toLowerCase()) {
+      setState(() => connectionError = 'Checking username availability...');
+      final taken = await isUsernameTaken(nextUser, excludeUser: oldUser);
+      if (taken) {
+        if (mounted) {
+          setState(() {
+            connectionError =
+                'Username "$nextUser" is already taken. Choose a different name.';
+          });
+        }
+        return;
+      }
+    }
+
     setState(() {
       currentUser = nextUser;
       selectedBackground = profileBackground;
       profileOpen = false;
       connectionError = null;
     });
+
+    await saveSavedUsername(nextUser);
 
     if (oldUser.isNotEmpty && oldUser != nextUser && supabaseReady) {
       try {
@@ -919,11 +1023,14 @@ class _ChatPageState extends State<ChatPage> {
           SizedBox(
             width: double.infinity,
             child: TextButton.icon(
-              onPressed: () {
+              onPressed: () async {
                 setState(() => profileOpen = false);
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (_) => const LoginPage()),
-                );
+                await clearSavedUsername();
+                if (context.mounted) {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (_) => const LoginPage()),
+                  );
+                }
               },
               icon: const Icon(Icons.logout),
               label: const Text('Logout'),
