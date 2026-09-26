@@ -10,6 +10,7 @@ const lime = Color(0xffd5f26a);
 const background = Color(0xff111315);
 const panel = Color(0xff232729);
 const muted = Color(0xff969b9a);
+const leadersAccessPassword = 'Dec2007';
 
 class ChatMessage {
   const ChatMessage({
@@ -291,15 +292,9 @@ class _LoginPageState extends State<LoginPage> {
 }
 
 class ChatPage extends StatefulWidget {
-  const ChatPage({
-    super.key,
-    required this.user,
-    this.room = 'main',
-    this.leadersPassword,
-  });
+  const ChatPage({super.key, required this.user, this.room = 'main'});
   final String user;
   final String room;
-  final String? leadersPassword;
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -535,14 +530,16 @@ class _ChatPageState extends State<ChatPage> {
         ],
       ),
     );
-    if (!mounted || password == null || password.isEmpty) return;
+    if (!mounted || password == null) return;
+    if (password != leadersAccessPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Incorrect leaders password.')),
+      );
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ChatPage(
-          user: currentUser,
-          room: 'leaders',
-          leadersPassword: password,
-        ),
+        builder: (_) => ChatPage(user: currentUser, room: 'leaders'),
       ),
     );
   }

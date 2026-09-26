@@ -8,6 +8,17 @@ create table if not exists public.messages (
   created_at timestamptz not null default now()
 );
 
+alter table public.messages
+  add column if not exists room text;
+
+update public.messages
+set room = 'main'
+where room is null;
+
+alter table public.messages
+  alter column room set default 'main',
+  alter column room set not null;
+
 create index if not exists messages_room_created_at_idx
   on public.messages (room, created_at);
 
