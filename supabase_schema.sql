@@ -30,6 +30,10 @@ drop policy if exists "Allow public insert" on public.messages;
 create policy "Allow public insert"
   on public.messages for insert to anon, authenticated with check (true);
 
+drop policy if exists "Allow public update" on public.messages;
+create policy "Allow public update"
+  on public.messages for update to anon, authenticated using (true) with check (true);
+
 drop policy if exists "Allow public delete" on public.messages;
 create policy "Allow public delete"
   on public.messages for delete to anon, authenticated using (true);

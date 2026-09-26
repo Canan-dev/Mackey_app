@@ -29,6 +29,16 @@ Future<void> clearSavedUsername() async {
   await prefs.remove('saved_username');
 }
 
+Future<void> saveSavedBackground(int colorValue) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setInt('saved_background_color', colorValue);
+}
+
+Future<int?> getSavedBackground() async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getInt('saved_background_color');
+}
+
 Future<bool> isUsernameTaken(String username, {String? excludeUser}) async {
   if (!supabaseReady) return false;
   final clean = username.trim();
@@ -431,8 +441,19 @@ class _ChatPageState extends State<ChatPage> {
     currentUser = widget.user;
     profileUsername.text = widget.user;
     profileBackground = selectedBackground;
+    _loadSavedBackground();
     supabaseReadyNotifier.addListener(_onSupabaseReady);
     if (supabaseReady) _subscribeToMessages();
+  }
+
+  Future<void> _loadSavedBackground() async {
+    final bgInt = await getSavedBackground();
+    if (bgInt != null && mounted) {
+      setState(() {
+        selectedBackground = Color(bgInt);
+        profileBackground = Color(bgInt);
+      });
+    }
   }
 
   void _onSupabaseReady() {
@@ -537,15 +558,20 @@ class _ChatPageState extends State<ChatPage> {
     });
 
     await saveSavedUsername(nextUser);
+    await saveSavedBackground(profileBackground.toARGB32());
 
     if (oldUser.isNotEmpty && oldUser != nextUser && supabaseReady) {
       try {
         await Supabase.instance.client
             .from('messages')
             .update({'author': nextUser})
-            .eq('author', oldUser);
-      } catch (_) {
-        // Silently handle if update fails
+            .ilike('author', oldUser);
+      } catch (error) {
+        if (mounted) {
+          setState(
+            () => connectionError = 'Could not update past messages: $error',
+          );
+        }
       }
     }
   }
