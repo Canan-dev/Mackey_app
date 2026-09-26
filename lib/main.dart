@@ -80,6 +80,20 @@ Future<List<PendingMessage>> getPendingQueue() async {
       .toList();
 }
 
+Future<void> saveCachedDbMessages(List<Map<String, dynamic>> list) async {
+  final prefs = await SharedPreferences.getInstance();
+  final raw = list.map((m) => jsonEncode(m)).toList();
+  await prefs.setStringList('cached_db_messages', raw);
+}
+
+Future<List<Map<String, dynamic>>> getCachedDbMessages() async {
+  final prefs = await SharedPreferences.getInstance();
+  final raw = prefs.getStringList('cached_db_messages') ?? [];
+  return raw
+      .map((str) => jsonDecode(str) as Map<String, dynamic>)
+      .toList();
+}
+
 Future<void> saveSavedUsername(String name) async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setString('saved_username', name);
@@ -642,14 +656,17 @@ class _ChatPageState extends State<ChatPage> {
             .eq('room', widget.room)
             .order('created_at', ascending: false);
         dbRows = List<Map<String, dynamic>>.from(data);
+        await saveCachedDbMessages(dbRows);
         if (mounted &&
             connectionError != null &&
             connectionError!.contains('offline')) {
           setState(() => connectionError = null);
         }
       } catch (_) {
-        // Offline load fallback
+        dbRows = await getCachedDbMessages();
       }
+    } else {
+      dbRows = await getCachedDbMessages();
     }
 
     if (!messagesController.isClosed) {
@@ -929,18 +946,70 @@ class _ChatPageState extends State<ChatPage> {
     super.dispose();
   }
 
+  Widget _buildStatusBanner() {
+    if (connectionError == null) return const SizedBox.shrink();
+
+    final isInfo = connectionError!.contains('Uploading') ||
+        connectionError!.contains('offline') ||
+        connectionError!.contains('Saved') ||
+        connectionError!.contains('Checking');
+
+    final bg = isInfo
+        ? lime.withValues(alpha: 0.15)
+        : Colors.redAccent.withValues(alpha: 0.15);
+    final border = isInfo
+        ? lime.withValues(alpha: 0.4)
+        : Colors.redAccent.withValues(alpha: 0.4);
+    final fg = isInfo ? lime : const Color(0xffff9b8e);
+    final icon = isInfo
+        ? (connectionError!.contains('Uploading')
+            ? Icons.cloud_upload_rounded
+            : Icons.info_outline_rounded)
+        : Icons.error_outline_rounded;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        children: [
+          if (connectionError!.contains('Uploading'))
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: fg,
+              ),
+            )
+          else
+            Icon(icon, color: fg, size: 16),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              connectionError!,
+              style: TextStyle(
+                color: fg,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final chatBody = Column(
       children: [
-        if (connectionError != null)
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Text(
-              connectionError!,
-              style: const TextStyle(color: Color(0xffff9b8e)),
-            ),
-          ),
+        _buildStatusBanner(),
         Expanded(
           child: StreamBuilder<List<Map<String, dynamic>>>(
             stream: messageStream,
