@@ -801,16 +801,23 @@ class _ChatPageState extends State<ChatPage> {
       createdAt: DateTime.now(),
     );
 
-    try {
-      if (!supabaseReady) throw Exception('Offline');
-      await Supabase.instance.client.from('messages').insert({
-        'room': widget.room,
-        'author': currentUser,
-        'text': text,
-        'attachment_url': attachmentUrl,
-        'attachment_name': attachmentName,
-      });
-    } catch (_) {
+    bool sentOnline = false;
+    if (supabaseReady) {
+      try {
+        await Supabase.instance.client.from('messages').insert({
+          'room': widget.room,
+          'author': currentUser,
+          'text': text,
+          'attachment_url': attachmentUrl,
+          'attachment_name': attachmentName,
+        });
+        sentOnline = true;
+      } catch (_) {
+        sentOnline = false;
+      }
+    }
+
+    if (!sentOnline) {
       pendingQueue.add(pending);
       await savePendingQueue(pendingQueue);
       if (mounted) {
