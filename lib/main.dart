@@ -903,7 +903,7 @@ class _ChatPageState extends State<ChatPage> {
     final password = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('MMC Leaders Chat Space'),
+        title: const Text('Leaders'),
         content: TextField(
           autofocus: true,
           obscureText: true,
@@ -1223,7 +1223,7 @@ class _ChatPageState extends State<ChatPage> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'MMC Leaders Chat Space',
+                      'Leaders',
                       style: TextStyle(
                         color: widget.room == 'leaders' ? muted : Colors.white,
                         fontWeight: FontWeight.w600,
@@ -1367,7 +1367,7 @@ class _ChatPageState extends State<ChatPage> {
             ),
             const SizedBox(width: 9),
             Text(
-              widget.room == 'leaders' ? 'MMC Leaders Chat Space' : 'MMC talk',
+              widget.room == 'leaders' ? 'Leaders' : 'MMC talk',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ],
