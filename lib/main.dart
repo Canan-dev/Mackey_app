@@ -524,6 +524,7 @@ class _ChatPageState extends State<ChatPage> {
   String currentUser = '';
   Set<String> deletedForMeIds = {};
   List<PendingMessage> pendingQueue = [];
+  PlatformFile? selectedAttachment;
   Timer? syncTimer;
 
   static const List<Color> palette = [
@@ -629,7 +630,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _subscribeToMessages() async {
-    await _loadMessages();
+    await _loadMessages(scrollToBottom: true);
     messagesChannel = Supabase.instance.client
         .channel('room-${widget.room}')
         .onPostgresChanges(
@@ -646,7 +647,7 @@ class _ChatPageState extends State<ChatPage> {
         .subscribe();
   }
 
-  Future<void> _loadMessages() async {
+  Future<void> _loadMessages({bool scrollToBottom = false}) async {
     List<Map<String, dynamic>> dbRows = [];
     if (supabaseReady) {
       try {
@@ -689,7 +690,9 @@ class _ChatPageState extends State<ChatPage> {
 
       final combined = [...roomPending, ...filteredDb];
       messagesController.add(combined);
-      _scrollToBottom();
+      if (scrollToBottom) {
+        _scrollToBottom();
+      }
     }
   }
 
@@ -762,26 +765,47 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> send() async {
     final text = draft.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty && selectedAttachment == null) return;
+
+    final fileToUpload = selectedAttachment;
     draft.clear();
+    setState(() {
+      selectedAttachment = null;
+    });
+
     try {
-      await _sendMessage(text: text);
-    } on PostgrestException catch (error) {
-      if (mounted) {
-        setState(() => connectionError = _supabaseError(error));
+      String? attachmentUrl;
+      String? attachmentName;
+
+      if (fileToUpload != null) {
+        setState(() => connectionError = 'Uploading ${fileToUpload.name}...');
+        final data = await fileToUpload.readAsBytes();
+        final path =
+            '${widget.room}/${DateTime.now().microsecondsSinceEpoch}_${fileToUpload.name}';
+        await Supabase.instance.client.storage
+            .from('attachments')
+            .uploadBinary(
+              path,
+              data,
+              fileOptions: const FileOptions(upsert: false),
+            );
+        attachmentUrl = Supabase.instance.client.storage
+            .from('attachments')
+            .getPublicUrl(path);
+        attachmentName = fileToUpload.name;
       }
+
+      await _sendMessage(
+        text: text,
+        attachmentUrl: attachmentUrl,
+        attachmentName: attachmentName,
+      );
+      if (mounted) setState(() => connectionError = null);
     } catch (_) {
       if (mounted) {
-        setState(() => connectionError = 'Could not send this message.');
+        setState(() => connectionError = 'There was a problem. It was not sent.');
       }
     }
-  }
-
-  String _supabaseError(PostgrestException error) {
-    if (error.code == '42501') {
-      return 'Supabase permissions are blocking this message. Run the SQL setup.';
-    }
-    return error.message;
   }
 
   Future<void> _sendMessage({
@@ -827,7 +851,7 @@ class _ChatPageState extends State<ChatPage> {
         });
       }
     }
-    await _loadMessages();
+    await _loadMessages(scrollToBottom: true);
   }
 
   Future<void> pickAttachment({required bool imageOnly}) async {
@@ -837,37 +861,9 @@ class _ChatPageState extends State<ChatPage> {
     if (result.isEmpty) {
       return;
     }
-    final file = result.first;
-    final data = await file.readAsBytes();
-    final path =
-        '${widget.room}/${DateTime.now().microsecondsSinceEpoch}_${file.name}';
-    try {
-      setState(() => connectionError = 'Uploading ${file.name}...');
-      await Supabase.instance.client.storage
-          .from('attachments')
-          .uploadBinary(
-            path,
-            data,
-            fileOptions: const FileOptions(upsert: false),
-          );
-      await _sendMessage(
-        attachmentUrl: Supabase.instance.client.storage
-            .from('attachments')
-            .getPublicUrl(path),
-        attachmentName: file.name,
-      );
-      if (mounted) setState(() => connectionError = null);
-    } catch (error) {
-      if (mounted) {
-        setState(
-          () => connectionError = error is PostgrestException
-              ? _supabaseError(error)
-              : error is StorageException
-                  ? 'Storage error: ${error.message}'
-                  : 'Could not upload ${file.name}: $error',
-        );
-      }
-    }
+    setState(() {
+      selectedAttachment = result.first;
+    });
   }
 
   Future<void> removeMessage(
@@ -883,9 +879,9 @@ class _ChatPageState extends State<ChatPage> {
             .delete()
             .eq('id', parsedId ?? message.id);
         await _loadMessages();
-      } catch (error) {
+      } catch (_) {
         if (mounted) {
-          setState(() => connectionError = 'Could not delete message: $error');
+          setState(() => connectionError = 'There was a problem. It was not sent.');
         }
       }
     } else {
@@ -1030,9 +1026,6 @@ class _ChatPageState extends State<ChatPage> {
               final messages = (snapshot.data ?? <Map<String, dynamic>>[])
                   .map(ChatMessage.fromMap)
                   .toList();
-              if (snapshot.hasData) {
-                _scrollToBottom();
-              }
               return messages.isEmpty
                   ? const Center(
                       child: Text(
@@ -1066,53 +1059,105 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               ],
             ),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                IconButton(
-                  onPressed: () => pickAttachment(imageOnly: true),
-                  icon: const Icon(Icons.photo_rounded),
-                  color: composerText,
-                  tooltip: 'Attach',
-                  splashRadius: 18,
-                ),
-                IconButton(
-                  onPressed: () => pickAttachment(imageOnly: false),
-                  icon: const Icon(Icons.insert_drive_file_outlined),
-                  color: composerText,
-                  tooltip: 'Document',
-                  splashRadius: 18,
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: draft,
-                    style: TextStyle(color: composerText),
-                    onSubmitted: (_) => send(),
-                    decoration: InputDecoration(
-                      hintText: 'Message',
-                      hintStyle: TextStyle(
-                        color: composerText.withValues(alpha: .7),
-                      ),
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
+                if (selectedAttachment != null)
+                  Container(
+                    margin: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          selectedAttachment!.extension == 'png' ||
+                                  selectedAttachment!.extension == 'jpg' ||
+                                  selectedAttachment!.extension == 'jpeg'
+                              ? Icons.image_rounded
+                              : Icons.insert_drive_file_rounded,
+                          size: 18,
+                          color: composerText,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            selectedAttachment!.name,
+                            style: TextStyle(
+                              color: composerText,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () =>
+                              setState(() => selectedAttachment = null),
+                          icon: const Icon(Icons.close_rounded, size: 16),
+                          color: composerText,
+                          splashRadius: 16,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(width: 4),
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: _bubbleColor(selectedBackground),
-                  child: IconButton(
-                    onPressed: send,
-                    icon: const Icon(Icons.send_rounded),
-                    color: _textColorForBackground(selectedBackground),
-                    splashRadius: 20,
-                    padding: EdgeInsets.zero,
-                  ),
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => pickAttachment(imageOnly: true),
+                      icon: const Icon(Icons.photo_rounded),
+                      color: composerText,
+                      tooltip: 'Attach',
+                      splashRadius: 18,
+                    ),
+                    IconButton(
+                      onPressed: () => pickAttachment(imageOnly: false),
+                      icon: const Icon(Icons.insert_drive_file_outlined),
+                      color: composerText,
+                      tooltip: 'Document',
+                      splashRadius: 18,
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: draft,
+                        style: TextStyle(color: composerText),
+                        onSubmitted: (_) => send(),
+                        decoration: InputDecoration(
+                          hintText: 'Message',
+                          hintStyle: TextStyle(
+                            color: composerText.withValues(alpha: .7),
+                          ),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: _bubbleColor(selectedBackground),
+                      child: IconButton(
+                        onPressed: send,
+                        icon: const Icon(Icons.send_rounded),
+                        color: _textColorForBackground(selectedBackground),
+                        splashRadius: 20,
+                        padding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
