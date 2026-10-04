@@ -5,6 +5,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:image/image.dart' as img;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -203,15 +205,81 @@ class ChatMessage {
   }
 }
 
+const String defaultSupabaseUrl = 'https://rxjhypjjrkamwnbvvipq.supabase.co';
+const String defaultSupabaseAnonKey =
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ4amh5cGpqcmthbXduYnZ2aXBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0MTA1NDcsImV4cCI6MjEwNTk4NjU0N30.ha9yJZpBoTGohW-BfStESfOyewEW7az5hpuole82_tM';
+
 String supabaseUrl = '';
 String supabaseAnonKey = '';
 final supabaseStartupError = ValueNotifier<String?>(null);
 final supabaseReadyNotifier = ValueNotifier<bool>(false);
 bool supabaseReady = false;
 
+final FlutterLocalNotificationsPlugin localNotifications =
+    FlutterLocalNotificationsPlugin();
+
+Future<void> initNotifications() async {
+  try {
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosInit = DarwinInitializationSettings();
+    const initSettings = InitializationSettings(android: androidInit, iOS: iosInit);
+    await localNotifications.initialize(initSettings);
+
+    final androidPlugin = localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin != null) {
+      await androidPlugin.requestNotificationsPermission();
+    }
+  } catch (_) {}
+}
+
+Future<void> showNewMessageNotification({
+  required String author,
+  required String text,
+  required String room,
+}) async {
+  try {
+    const androidDetails = AndroidNotificationDetails(
+      'mmc_messages_channel',
+      'MMC Messages',
+      channelDescription: 'Notifications for new chat messages',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: true,
+      icon: '@mipmap/ic_launcher',
+    );
+    const details = NotificationDetails(android: androidDetails);
+    await localNotifications.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      author,
+      text.isNotEmpty ? text : '📷 Sent an attachment',
+      details,
+      payload: room,
+    );
+  } catch (_) {}
+}
+
+Future<bool> _ensureSupabaseReady() async {
+  if (supabaseReady) return true;
+  try {
+    if (supabaseUrl.isEmpty) supabaseUrl = defaultSupabaseUrl;
+    if (supabaseAnonKey.isEmpty) supabaseAnonKey = defaultSupabaseAnonKey;
+    await Supabase.initialize(
+      url: supabaseUrl,
+      anonKey: supabaseAnonKey,
+    );
+    supabaseReady = true;
+    supabaseReadyNotifier.value = true;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MmcApp());
+  initNotifications();
   try {
     await dotenv.load(fileName: '.env', isOptional: true);
   } catch (_) {
@@ -229,22 +297,18 @@ Future<void> main() async {
   }
   supabaseUrl =
       dotenv.env['SUPABASE_URL'] ??
-      const String.fromEnvironment('SUPABASE_URL');
+      const String.fromEnvironment('SUPABASE_URL', defaultValue: defaultSupabaseUrl);
+  if (supabaseUrl.isEmpty) supabaseUrl = defaultSupabaseUrl;
+
   supabaseAnonKey =
       dotenv.env['SUPABASE_ANON_KEY'] ??
-      const String.fromEnvironment('SUPABASE_ANON_KEY');
-  if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
-    final missing = [
-      if (supabaseUrl.isEmpty) 'SUPABASE_URL',
-      if (supabaseAnonKey.isEmpty) 'SUPABASE_ANON_KEY',
-    ].join(' and ');
-    supabaseStartupError.value = 'Missing $missing in .env.';
-    return;
-  }
+      const String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: defaultSupabaseAnonKey);
+  if (supabaseAnonKey.isEmpty) supabaseAnonKey = defaultSupabaseAnonKey;
+
   try {
     await Supabase.initialize(
       url: supabaseUrl,
-      publishableKey: supabaseAnonKey,
+      anonKey: supabaseAnonKey,
     );
     supabaseReady = true;
     supabaseReadyNotifier.value = true;
@@ -508,7 +572,7 @@ class ChatPage extends StatefulWidget {
   State<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final draft = TextEditingController();
   final profileUsername = TextEditingController();
   final scrollController = ScrollController();
@@ -540,6 +604,7 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     currentUser = widget.user;
     profileUsername.text = widget.user;
     profileBackground = selectedBackground;
@@ -552,6 +617,22 @@ class _ChatPageState extends State<ChatPage> {
     );
     supabaseReadyNotifier.addListener(_onSupabaseReady);
     if (supabaseReady) _subscribeToMessages();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _onResume();
+    }
+  }
+
+  Future<void> _onResume() async {
+    await _ensureSupabaseReady();
+    if (supabaseReady) {
+      _subscribeToMessages();
+    }
+    await _loadMessages();
+    await _syncPendingQueue();
   }
 
   Future<void> _loadPendingQueue() async {
@@ -642,7 +723,21 @@ class _ChatPageState extends State<ChatPage> {
             column: 'room',
             value: widget.room,
           ),
-          callback: (_) => _loadMessages(),
+          callback: (payload) {
+            _loadMessages();
+            if (payload.eventType == PostgresChangeEvent.insert) {
+              final newRecord = payload.newRecord;
+              final author = newRecord['author'] as String? ?? 'MMC';
+              final text = newRecord['text'] as String? ?? '';
+              if (author.trim().toLowerCase() != currentUser.trim().toLowerCase()) {
+                showNewMessageNotification(
+                  author: author,
+                  text: text,
+                  room: widget.room,
+                );
+              }
+            }
+          },
         )
         .subscribe();
   }
@@ -725,8 +820,15 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> openAttachment(String url) async {
     final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    try {
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched) {
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
+      }
+    } catch (_) {
+      try {
+        await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      } catch (_) {}
     }
   }
 
@@ -763,6 +865,24 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  Future<Uint8List> _optimizeImage(Uint8List bytes) async {
+    try {
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null) return bytes;
+      if (decoded.width <= 1024 &&
+          decoded.height <= 1024 &&
+          bytes.lengthInBytes < 500000) {
+        return bytes;
+      }
+      final resized = (decoded.width > decoded.height)
+          ? img.copyResize(decoded, width: 1024)
+          : img.copyResize(decoded, height: 1024);
+      return Uint8List.fromList(img.encodeJpg(resized, quality: 82));
+    } catch (_) {
+      return bytes;
+    }
+  }
+
   Future<void> send() async {
     final text = draft.text.trim();
     if (text.isEmpty && selectedAttachment == null) return;
@@ -779,7 +899,15 @@ class _ChatPageState extends State<ChatPage> {
 
       if (fileToUpload != null) {
         setState(() => connectionError = 'Uploading ${fileToUpload.name}...');
-        final data = await fileToUpload.readAsBytes();
+        Uint8List data = await fileToUpload.readAsBytes();
+        final name = fileToUpload.name.toLowerCase();
+        if (name.endsWith('.jpg') ||
+            name.endsWith('.jpeg') ||
+            name.endsWith('.png') ||
+            name.endsWith('.webp') ||
+            name.endsWith('.bmp')) {
+          data = await _optimizeImage(data);
+        }
         final path =
             '${widget.room}/${DateTime.now().microsecondsSinceEpoch}_${fileToUpload.name}';
         await Supabase.instance.client.storage
@@ -939,6 +1067,7 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     syncTimer?.cancel();
     supabaseReadyNotifier.removeListener(_onSupabaseReady);
     messagesChannel?.unsubscribe();
@@ -1565,7 +1694,10 @@ class _ChatPageState extends State<ChatPage> {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        constraints: const BoxConstraints(maxHeight: 220),
+                        constraints: const BoxConstraints(
+                          maxWidth: 200,
+                          maxHeight: 150,
+                        ),
                         child: Image.network(
                           message.attachmentUrl!,
                           fit: BoxFit.cover,
@@ -1589,33 +1721,42 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                ],
-                InkWell(
-                  onTap: () => openAttachment(message.attachmentUrl!),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        message.isImageAttachment
-                            ? Icons.download_rounded
-                            : Icons.attach_file,
-                        color: bubbleTextColor,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 5),
-                      Flexible(
-                        child: Text(
-                          message.attachmentName ?? 'Attachment',
-                          style: TextStyle(
-                            color: bubbleTextColor,
-                            decoration: TextDecoration.underline,
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      icon: Icon(Icons.download_rounded, color: bubbleTextColor, size: 20),
+                      onPressed: () => openAttachment(message.attachmentUrl!),
+                      tooltip: 'Download image',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ),
+                ] else ...[
+                  InkWell(
+                    onTap: () => openAttachment(message.attachmentUrl!),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.attach_file,
+                          color: bubbleTextColor,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            message.attachmentName ?? 'Attachment',
+                            style: TextStyle(
+                              color: bubbleTextColor,
+                              decoration: TextDecoration.underline,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ],
             ],
           ),
