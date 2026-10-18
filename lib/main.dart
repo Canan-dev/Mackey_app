@@ -646,19 +646,23 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   Future<void> _syncPendingQueue() async {
+    await _ensureSupabaseReady();
     if (pendingQueue.isEmpty || !supabaseReady) return;
     final toSync = List<PendingMessage>.from(pendingQueue);
     bool syncedAny = false;
 
     for (final pending in toSync) {
       try {
-        await Supabase.instance.client.from('messages').insert({
-          'room': pending.room,
-          'author': pending.author,
-          'text': pending.text,
-          'attachment_url': pending.attachmentUrl,
-          'attachment_name': pending.attachmentName,
-        });
+        await Supabase.instance.client
+            .from('messages')
+            .insert({
+              'room': pending.room,
+              'author': pending.author,
+              'text': pending.text,
+              'attachment_url': pending.attachmentUrl,
+              'attachment_name': pending.attachmentName,
+            })
+            .timeout(const Duration(seconds: 8));
         pendingQueue.removeWhere((item) => item.localId == pending.localId);
         syncedAny = true;
       } catch (_) {
@@ -668,6 +672,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
     if (syncedAny) {
       await savePendingQueue(pendingQueue);
+      if (mounted && pendingQueue.isEmpty) {
+        setState(() {
+          connectionError = null;
+        });
+      }
       await _loadMessages();
     }
   }
@@ -936,12 +945,24 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
+  String _supabaseError(Object error) {
+    if (error is PostgrestException) {
+      if (error.code == '42501') {
+        return 'Supabase permissions are blocking this message. Run the SQL setup.';
+      }
+      return error.message;
+    }
+    return 'Saved offline. Message will send when back online.';
+  }
+
   Future<void> _sendMessage({
     String text = '',
     String? attachmentUrl,
     String? attachmentName,
   }) async {
     if (text.isEmpty && attachmentUrl == null) return;
+
+    await _ensureSupabaseReady();
 
     final pending = PendingMessage(
       localId: 'pending_${DateTime.now().microsecondsSinceEpoch}',
@@ -954,28 +975,53 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
 
     bool sentOnline = false;
+    String? errorMsg;
+
     if (supabaseReady) {
-      try {
-        await Supabase.instance.client.from('messages').insert({
-          'room': widget.room,
-          'author': currentUser,
-          'text': text,
-          'attachment_url': attachmentUrl,
-          'attachment_name': attachmentName,
-        });
-        sentOnline = true;
-      } catch (_) {
-        sentOnline = false;
+      for (int attempt = 0; attempt < 2; attempt++) {
+        try {
+          await Supabase.instance.client
+              .from('messages')
+              .insert({
+                'room': widget.room,
+                'author': currentUser,
+                'text': text,
+                'attachment_url': attachmentUrl,
+                'attachment_name': attachmentName,
+              })
+              .timeout(const Duration(seconds: 8));
+          sentOnline = true;
+          errorMsg = null;
+          break;
+        } on PostgrestException catch (e) {
+          sentOnline = false;
+          errorMsg = _supabaseError(e);
+          break;
+        } catch (e) {
+          sentOnline = false;
+          errorMsg = 'Saved offline. Message will send when back online.';
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
       }
+    } else {
+      errorMsg = 'Saved offline. Message will send when back online.';
     }
 
-    if (!sentOnline) {
-      pendingQueue.add(pending);
-      await savePendingQueue(pendingQueue);
+    if (sentOnline) {
       if (mounted) {
         setState(() {
-          connectionError =
-              'Saved offline. Message will send when back online.';
+          connectionError = null;
+        });
+      }
+      _syncPendingQueue();
+    } else {
+      if (errorMsg != null && errorMsg.contains('offline')) {
+        pendingQueue.add(pending);
+        await savePendingQueue(pendingQueue);
+      }
+      if (mounted) {
+        setState(() {
+          connectionError = errorMsg;
         });
       }
     }
@@ -999,17 +1045,37 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     required bool everywhere,
   }) async {
     if (mounted) Navigator.pop(context);
+
+    if (message.isPending || message.id.startsWith('pending_')) {
+      pendingQueue.removeWhere((item) => item.localId == message.id);
+      await savePendingQueue(pendingQueue);
+      if (mounted) {
+        setState(() {
+          connectionError = null;
+        });
+      }
+      await _loadMessages();
+      return;
+    }
+
     if (everywhere) {
       try {
         final parsedId = int.tryParse(message.id);
-        await Supabase.instance.client
-            .from('messages')
-            .delete()
-            .eq('id', parsedId ?? message.id);
-        await _loadMessages();
-      } catch (_) {
+        if (parsedId != null) {
+          await Supabase.instance.client
+              .from('messages')
+              .delete()
+              .eq('id', parsedId);
+        }
         if (mounted) {
-          setState(() => connectionError = 'There was a problem. It was not sent.');
+          setState(() {
+            connectionError = null;
+          });
+        }
+        await _loadMessages();
+      } catch (error) {
+        if (mounted) {
+          setState(() => connectionError = _supabaseError(error));
         }
       }
     } else {
