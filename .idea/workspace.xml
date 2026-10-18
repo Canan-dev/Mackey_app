@@ -4,7 +4,13 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2423a130-6d02-4e73-93f2-1a4b8f96450a" name="Changes" comment="" />
+    <list default="true" id="2423a130-6d02-4e73-93f2-1a4b8f96450a" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/flutter_app/web/icons/Icon-192.png" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/web/icons/Icon-192.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/web/icons/Icon-512.png" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/web/icons/Icon-512.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/web/icons/Icon-maskable-192.png" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/web/icons/Icon-maskable-192.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/web/icons/Icon-maskable-512.png" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/web/icons/Icon-maskable-512.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/flutter_app/web/manifest.json" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/web/manifest.json" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />

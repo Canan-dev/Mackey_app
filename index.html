@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Download MMC App</title>
+  <title>Download & Install MMC App</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
     body {
@@ -44,32 +44,47 @@
       color: #969b9a;
       font-size: 15px;
       line-height: 1.5;
-      margin-bottom: 30px;
+      margin-bottom: 26px;
     }
-    .download-btn {
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 12px;
       width: 100%;
-      background: #d5f26a;
-      color: #111315;
-      text-decoration: none;
-      padding: 18px 24px;
+      padding: 16px 20px;
       border-radius: 20px;
       font-weight: 800;
-      font-size: 18px;
-      box-shadow: 0 8px 24px rgba(213, 242, 106, 0.25);
+      font-size: 16px;
+      text-decoration: none;
       transition: transform 0.15s ease, background 0.15s ease;
     }
-    .download-btn:active {
-      transform: scale(0.98);
-      background: #c3e257;
+    .btn-primary {
+      background: #d5f26a;
+      color: #111315;
+      box-shadow: 0 8px 24px rgba(213, 242, 106, 0.25);
     }
-    .file-info {
-      margin-top: 20px;
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    .btn:active {
+      transform: scale(0.98);
+    }
+    .info {
+      margin-top: 22px;
       font-size: 13px;
       color: #727776;
+      line-height: 1.5;
+    }
+    .info strong {
+      color: #d5f26a;
     }
   </style>
 </head>
@@ -77,14 +92,22 @@
   <div class="card">
     <img src="flutter_app/assets/mmc-logo.jpg" alt="MMC Logo" class="app-icon" />
     <h1>MMC App</h1>
-    <p>Official Android Mobile App</p>
+    <p>Official Mobile App & Web Application</p>
 
-    <a href="releases/app-release.apk" class="download-btn" download="app-release.apk">
-      <span>📥 Download App</span>
-    </a>
+    <div class="btn-group">
+      <!-- Android Direct APK Download -->
+      <a href="releases/app-release.apk" class="btn btn-primary" download="app-release.apk">
+        <span>🤖 Download Android APK</span>
+      </a>
 
-    <div class="file-info">
-      Version 1.0 • Android APK (~54 MB)
+      <!-- iPhone / Web PWA App -->
+      <a href="web_app/index.html" class="btn btn-secondary">
+        <span>🍎 Open / Install on iPhone (PWA)</span>
+      </a>
+    </div>
+
+    <div class="info">
+      <strong>iPhone users:</strong> Open the iPhone app link above in Safari, tap <strong>Share</strong> 📤, then select <strong>"Add to Home Screen"</strong>!
     </div>
   </div>
 </body>
