@@ -999,7 +999,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           break;
         } catch (e) {
           sentOnline = false;
-          errorMsg = 'Saved offline. Message will send when back online.';
+          final errStr = e.toString();
+          debugPrint('Send message error: $errStr');
+          if (errStr.contains('Failed host lookup') ||
+              errStr.contains('ENOTFOUND') ||
+              errStr.contains('SocketException')) {
+            errorMsg =
+                'Cannot connect to Supabase. Check if project is paused at supabase.com/dashboard';
+          } else {
+            errorMsg = 'Error sending message: $e';
+          }
           await Future.delayed(const Duration(milliseconds: 500));
         }
       }
