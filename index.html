@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Download MMC App</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+    body {
+      background: #111315;
+      color: #ffffff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .card {
+      background: #1f2427;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 28px;
+      padding: 44px 28px;
+      text-align: center;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+    }
+    .app-icon {
+      width: 96px;
+      height: 96px;
+      border-radius: 24px;
+      object-fit: cover;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      border: 2px solid rgba(213, 242, 106, 0.5);
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+    p {
+      color: #969b9a;
+      font-size: 15px;
+      line-height: 1.5;
+      margin-bottom: 30px;
+    }
+    .download-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+      background: #d5f26a;
+      color: #111315;
+      text-decoration: none;
+      padding: 18px 24px;
+      border-radius: 20px;
+      font-weight: 800;
+      font-size: 18px;
+      box-shadow: 0 8px 24px rgba(213, 242, 106, 0.25);
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+    .download-btn:active {
+      transform: scale(0.98);
+      background: #c3e257;
+    }
+    .file-info {
+      margin-top: 20px;
+      font-size: 13px;
+      color: #727776;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img src="flutter_app/assets/mmc-logo.jpg" alt="MMC Logo" class="app-icon" />
+    <h1>MMC App</h1>
+    <p>Official Android Mobile App</p>
+
+    <a href="releases/app-release.apk" class="download-btn" download="app-release.apk">
+      <span>📥 Download App</span>
+    </a>
+
+    <div class="file-info">
+      Version 1.0 • Android APK (~54 MB)
+    </div>
+  </div>
+</body>
+</html>
