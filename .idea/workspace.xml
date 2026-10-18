@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2423a130-6d02-4e73-93f2-1a4b8f96450a" name="Changes" comment="" />
+    <list default="true" id="2423a130-6d02-4e73-93f2-1a4b8f96450a" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/flutter_app/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/lib/main.dart" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -20,7 +22,7 @@
         <option name="title" value="All" />
       </GitPushTagMode>
     </option>
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/flutter_app" />
     <option name="ROOT_SYNC" value="SYNC" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
