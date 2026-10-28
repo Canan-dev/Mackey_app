@@ -10,6 +10,7 @@ import 'package:image/image.dart' as img;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'services/update_service.dart';
 
 const lime = Color(0xffd5f26a);
 const background = Color(0xff111315);
@@ -617,6 +618,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
     supabaseReadyNotifier.addListener(_onSupabaseReady);
     if (supabaseReady) _subscribeToMessages();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      UpdateService.checkForUpdates(context);
+    });
   }
 
   @override
@@ -1574,6 +1578,25 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             ],
           ),
           const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                setState(() => profileOpen = false);
+                UpdateService.checkForUpdates(context, isManual: true);
+              },
+              icon: const Icon(Icons.system_update_rounded, size: 18),
+              label: const Text('Check for Updates'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: lime,
+                side: const BorderSide(color: lime),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: TextButton.icon(

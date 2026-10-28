@@ -3,7 +3,7 @@ const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
 
-const directApkUrl = 'https://pro2007-bot.github.io/Mackey_app/';
+const directApkUrl = 'https://canan-dev.github.io/Mackey_app/';
 const logoPath = path.join(__dirname, '../assets/mmc-logo.jpg');
 const outputPngPath = path.join(__dirname, '../../MMC_App_Download_QR.png');
 const outputHtmlPath = path.join(__dirname, '../../MMC_App_Download_QR.html');

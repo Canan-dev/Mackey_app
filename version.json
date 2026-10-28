@@ -1,0 +1,8 @@
+{
+  "version": "1.0.0",
+  "build_number": 1,
+  "apk_url": "https://canan-dev.github.io/Mackey_app/app-release.apk",
+  "changelog": "• Automatic In-App Updates enabled\n• Modern updated app icon\n• Bug fixes and performance improvements",
+  "force_update": false,
+  "min_version": "1.0.0"
+}

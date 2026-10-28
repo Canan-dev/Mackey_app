@@ -5,12 +5,35 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="2423a130-6d02-4e73-93f2-1a4b8f96450a" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/flutter_app/backend/generate_qr.js" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/backend/generate_qr.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flutter_app/web/icons/Icon-192.png" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/web/icons/Icon-192.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flutter_app/web/icons/Icon-512.png" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/web/icons/Icon-512.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flutter_app/web/icons/Icon-maskable-192.png" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/web/icons/Icon-maskable-192.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flutter_app/web/icons/Icon-maskable-512.png" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/web/icons/Icon-maskable-512.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/flutter_app/web/manifest.json" beforeDir="false" afterPath="$PROJECT_DIR$/flutter_app/web/manifest.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/src/main/AndroidManifest.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android/app/src/main/kotlin/com/mmc/mmc_app/MainActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/src/main/kotlin/com/mmc/mmc_app/MainActivity.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android/app/src/main/res/mipmap-hdpi/ic_launcher.png" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/src/main/res/mipmap-hdpi/ic_launcher.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android/app/src/main/res/mipmap-mdpi/ic_launcher.png" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/src/main/res/mipmap-mdpi/ic_launcher.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android/build/reports/problems/problems-report.html" beforeDir="false" afterPath="$PROJECT_DIR$/android/build/reports/problems/problems-report.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android/gradle.properties" beforeDir="false" afterPath="$PROJECT_DIR$/android/gradle.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/assets/mmc-logo.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/assets/mmc-logo.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/generate_qr.js" beforeDir="false" afterPath="$PROJECT_DIR$/backend/generate_qr.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/main.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/linux/flutter/generated_plugin_registrant.cc" beforeDir="false" afterPath="$PROJECT_DIR$/linux/flutter/generated_plugin_registrant.cc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/linux/flutter/generated_plugin_registrant.h" beforeDir="false" afterPath="$PROJECT_DIR$/linux/flutter/generated_plugin_registrant.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/linux/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/linux/flutter/generated_plugins.cmake" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/macos/Flutter/GeneratedPluginRegistrant.swift" beforeDir="false" afterPath="$PROJECT_DIR$/macos/Flutter/GeneratedPluginRegistrant.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web/favicon.png" beforeDir="false" afterPath="$PROJECT_DIR$/web/favicon.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web/icons/Icon-192.png" beforeDir="false" afterPath="$PROJECT_DIR$/web/icons/Icon-192.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web/icons/Icon-512.png" beforeDir="false" afterPath="$PROJECT_DIR$/web/icons/Icon-512.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web/icons/Icon-maskable-192.png" beforeDir="false" afterPath="$PROJECT_DIR$/web/icons/Icon-maskable-192.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/web/icons/Icon-maskable-512.png" beforeDir="false" afterPath="$PROJECT_DIR$/web/icons/Icon-maskable-512.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/windows/flutter/generated_plugin_registrant.cc" beforeDir="false" afterPath="$PROJECT_DIR$/windows/flutter/generated_plugin_registrant.cc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/windows/flutter/generated_plugin_registrant.h" beforeDir="false" afterPath="$PROJECT_DIR$/windows/flutter/generated_plugin_registrant.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/windows/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/windows/flutter/generated_plugins.cmake" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -64,7 +87,7 @@
     &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Volumes/GRACIOUS~$T/canan&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/DELL/Desktop/canan&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;AndroidSdkUpdater&quot;
   }
 }</component>
