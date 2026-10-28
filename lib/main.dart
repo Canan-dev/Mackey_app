@@ -1631,7 +1631,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             ClipRRect(
               borderRadius: BorderRadius.circular(9),
               child: Image.asset(
-                'assets/mmc-logo.jpg',
+                'assets/mmc-logo.png',
                 width: 30,
                 height: 30,
                 fit: BoxFit.cover,
@@ -1640,11 +1640,43 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             const SizedBox(width: 9),
             Text(
               widget.room == 'leaders' ? 'Leaders' : 'MMC talk',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ],
         ),
         actions: [
+          ValueListenableBuilder<bool>(
+            valueListenable: UpdateService.hasUpdateNotifier,
+            builder: (context, hasUpdate, child) {
+              if (!hasUpdate) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Center(
+                  child: ElevatedButton.icon(
+                    onPressed: () =>
+                        UpdateService.checkForUpdates(context, isManual: true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00D2FF),
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: const Icon(Icons.system_update_rounded, size: 14),
+                    label: const Text(
+                      'UPDATE',
+                      style: TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.extrabold),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: InkWell(

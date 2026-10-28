@@ -12,6 +12,9 @@ class UpdateService {
   static const MethodChannel _installerChannel =
       MethodChannel('com.mmc.mmc_app/installer');
 
+  static final ValueNotifier<bool> hasUpdateNotifier =
+      ValueNotifier<bool>(false);
+
   /// Check for app updates. If [isManual] is true, shows a message when up-to-date.
   static Future<void> checkForUpdates(BuildContext context,
       {bool isManual = false}) async {
@@ -49,6 +52,7 @@ class UpdateService {
       final String currentVersion = packageInfo.version;
 
       if (_isVersionNewer(serverVersion, currentVersion)) {
+        hasUpdateNotifier.value = true;
         if (context.mounted) {
           _showUpdateDialog(
             context: context,
@@ -60,6 +64,7 @@ class UpdateService {
           );
         }
       } else {
+        hasUpdateNotifier.value = false;
         if (isManual && context.mounted) {
           _showSnackBar(context, 'MMC is up to date (v$currentVersion)! ✨');
         }
