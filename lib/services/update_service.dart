@@ -237,7 +237,7 @@ class _UpdateDialogWidgetState extends State<_UpdateDialogWidget> {
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
@@ -253,7 +253,7 @@ class _UpdateDialogWidgetState extends State<_UpdateDialogWidget> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
-                    crossAxisAlignment: CrossAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
                         'Update Available! 🚀',
@@ -286,21 +286,23 @@ class _UpdateDialogWidgetState extends State<_UpdateDialogWidget> {
               ),
             ),
             const SizedBox(height: 8),
-            Container(
-              maxHeight: 120,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white10),
-              ),
-              child: SingleChildScrollView(
-                child: Text(
-                  widget.changelog,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.85),
-                    fontSize: 13,
-                    height: 1.4,
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 120),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white10),
+                ),
+                child: SingleChildScrollView(
+                  child: Text(
+                    widget.changelog,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.85),
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
                   ),
                 ),
               ),
@@ -315,7 +317,7 @@ class _UpdateDialogWidgetState extends State<_UpdateDialogWidget> {
             const SizedBox(height: 24),
             if (_isDownloading) ...[
               Column(
-                crossAxisAlignment: CrossAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,

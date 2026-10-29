@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -912,7 +913,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
       if (fileToUpload != null) {
         setState(() => connectionError = 'Uploading ${fileToUpload.name}...');
-        Uint8List data = await fileToUpload.readAsBytes();
+        Uint8List data = fileToUpload.bytes ??
+            await File(fileToUpload.path!).readAsBytes();
         final name = fileToUpload.name.toLowerCase();
         if (name.endsWith('.jpg') ||
             name.endsWith('.jpeg') ||
@@ -1045,11 +1047,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     final result = await FilePicker.pickFiles(
       type: imageOnly ? FileType.image : FileType.any,
     );
-    if (result.isEmpty) {
+    if (result == null || result.files.isEmpty) {
       return;
     }
     setState(() {
-      selectedAttachment = result.first;
+      selectedAttachment = result.files.first;
     });
   }
 
@@ -1681,7 +1683,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                     label: const Text(
                       'UPDATE',
                       style: TextStyle(
-                          fontSize: 11, fontWeight: FontWeight.extrabold),
+                          fontSize: 11, fontWeight: FontWeight.w800),
                     ),
                   ),
                 ),
