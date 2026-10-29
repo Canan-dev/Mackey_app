@@ -1492,7 +1492,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           if (widget.room == 'leaders') ...[
             const SizedBox(height: 4),
             InkWell(
-              onTap: () => Navigator.of(context).pop(),
+              onTap: () {
+                setState(() => profileOpen = false);
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                } else {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(
+                      builder: (_) => ChatPage(user: currentUser, room: 'public'),
+                    ),
+                  );
+                }
+              },
               borderRadius: BorderRadius.circular(12),
               child: const Padding(
                 padding: EdgeInsets.symmetric(vertical: 10),
